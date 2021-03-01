@@ -19,14 +19,15 @@ Individual contribution to the fitted values of each FMM wave. It is a \code{lis
 
 \examples{
 ## Generate example data:
-fmm2.data <- generate_FMM(0, 2, c(1.5, 3.4), c(0.2, 2.3), c(0.1, 0.2),
+fmm2.data <- generateFMM(M = 0, A = rep(2,1),
+                    alpha = c(1.5, 3.4), beta = c(0.2, 2.3), omega = c(0.1, 0.2),
                     plot = FALSE, outvalues = TRUE,
                     sigmaNoise = 0.5) # add a gaussian noise with sigma = 0.5
 
 ## Fit the FMM model with nback = 2 components
 ## fit is an object of S4 class 'FMM'
 fit <- fitFMM(fmm2.data$y,timePoints = fmm2.data$t,nback = 2,
-              lengthAlphaGrid = 24,lengthOmegaGrid = 10)
+              lengthAlphaGrid = 24,lengthOmegaGrid = 10, numReps = 1)
 ## extracts individual contribution of each FMM wave
 extractWaves(fit)
 }

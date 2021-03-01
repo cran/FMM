@@ -148,6 +148,7 @@ fitFMM_back<-function(vData, timePoints = seqTimes(length(vData)), nback, maxite
     ajusteComponenteAnt <- ajusteComponente
 
   }
+  nIter <- i
 
   # showProgress
   if(showProgress){
@@ -164,10 +165,18 @@ fitFMM_back<-function(vData, timePoints = seqTimes(length(vData)), nback, maxite
       }
     }
     cat("|\n")
-    if(i == maxiter){
-      cat("Stopped by reaching maximum iterations\n")
+    if(nIter == maxiter){
+      if(nIter == 1){
+         cat("Stopped by reaching maximum iterations (",nIter ,"iteration )","\n")
+      } else {
+         cat("Stopped by reaching maximum iterations (",nIter ,"iterations )","\n")
+      }
     } else {
-      cat("Stopped by the stopFunction\n")
+      if(nIter == 1){
+        cat("Stopped by the stopFunction (",nIter ,"iteration )","\n")
+      } else {
+        cat("Stopped by the stopFunction (",nIter ,"iterations )","\n")
+      }
     }
   }
 
@@ -216,7 +225,8 @@ fitFMM_back<-function(vData, timePoints = seqTimes(length(vData)), nback, maxite
     summarizedData = vData,
     fittedValues= adjMob,
     SSE = SSE,
-    R2 = PVj(vData, timePoints, alpha, beta, omega)
+    R2 = PVj(vData, timePoints, alpha, beta, omega),
+    nIter = nIter
   )
 
   return(outMobius)

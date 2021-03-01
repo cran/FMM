@@ -1,11 +1,11 @@
-\name{FMMPeaks}
-\alias{FMMPeaks}
+\name{getFMMPeaks}
+\alias{getFMMPeaks}
 \title{Peak and trough times and signal values}
 \usage{
-FMMPeaks(objFMM, timePointsIn2pi = TRUE)
+getFMMPeaks(objFMM, timePointsIn2pi = TRUE)
 }
 \description{
-  \code{FMMPeaks()} can be used to estimate interesting parameters of the FMM model specially useful in applications. The function estimates peak and trough times and signal values at those times for each component of the model.
+  \code{getFMMPeaks()} can be used to estimate interesting parameters of the FMM model specially useful in applications. The function estimates peak and trough times and signal values at those times for each component of the model.
 }
 \arguments{
 	\item{objFMM}{Object of class \code{'FMM'}.}
@@ -30,15 +30,15 @@ Rueda C, Larriba Y, Peddada SD (2019).
 
 \examples{
 ## Generate example data:
-fmm2.data <- generate_FMM(0, 2, c(1.5, 3.4), c(0.2, 2.3), c(0.1, 0.2),
+fmm2.data <- generateFMM(0, 2, c(1.5, 3.4), c(0.2, 2.3), c(0.1, 0.2),
                     plot = FALSE, outvalues = TRUE,
                     sigmaNoise = 0.5) # add a gaussian noise with sigma = 0.5
 
 ## Fit the FMM model with nback = 2 components
 ## fit is an object of S4 class 'FMM'
 fit <- fitFMM(fmm2.data$y,timePoints = fmm2.data$t,nback = 2,
-              lengthAlphaGrid = 24,lengthOmegaGrid = 10)
+              lengthAlphaGrid = 24,lengthOmegaGrid = 10, numReps = 1)
 ## estimate peakes and trough times and signals
-FMMPeaks(fit, timePointsIn2pi = TRUE) # times in the [0,2*pi] interval
+getFMMPeaks(fit, timePointsIn2pi = TRUE) # times in the [0,2*pi] interval
 
 }

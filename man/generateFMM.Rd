@@ -1,15 +1,15 @@
-\name{generate_FMM}
-\alias{generate_FMM}
+\name{generateFMM}
+\alias{generateFMM}
 \title{Simulating data from FMM models}
 
 \usage{
-generate_FMM(M, A, a, b, w, from = 0, to = 2*pi, length.out = 100,
+generateFMM(M, A, alpha, beta, omega, from = 0, to = 2*pi, length.out = 100,
              timePoints = seq(from, to, length = length.out), plot = TRUE,
              outvalues = TRUE, sigmaNoise = 0)
 }
 
 \description{
-\code{generate_FMM()} simulates data from a FMM model defined by parameters \code{M}, \code{A}, \eqn{\alpha}, \eqn{\beta} and \eqn{\omega}.
+\code{generateFMM()} simulates data from a FMM model defined by parameters \code{M}, \code{A}, \eqn{\alpha}, \eqn{\beta} and \eqn{\omega}.
 }
 
 \arguments{
@@ -19,15 +19,15 @@ generate_FMM(M, A, a, b, w, from = 0, to = 2*pi, length.out = 100,
    \item{A}{
       A positive numeric vector which contains the value of the FMM wave amplitude parameter \code{A}.
       }
-   \item{a}{
+   \item{alpha}{
       A numeric vector which contains the value of the FMM wave phase translation parameter \eqn{\alpha}.
       }
-   \item{b}{
+   \item{beta}{
       A numeric vector which contains the value of the FMM wave skewness parameter \eqn{\beta}.
       }
-   \item{w}{
+   \item{omega}{
       A numeric vector which contains the value of the FMM wave kurtosis parameter \eqn{\omega}.
-            \eqn{w} parameter must be between 0 and 1.
+            \code{omega} parameter must be between 0 and 1.
       }
    \item{from}{
       A numeric value which contains the initial time point of the simulated data. By default, it is 0.
@@ -58,9 +58,9 @@ generate_FMM(M, A, a, b, w, from = 0, to = 2*pi, length.out = 100,
 }
 
 \details{
-To simulate a multicomponent FMM model, arguments \code{A}, \code{a}, \code{b} and \code{w} are vectors of length \eqn{m}, where \eqn{m} represents the number of FMM waves. With different lengths, the smaller vectors will be replicate until thay are the same length as the longest vector.
+To simulate a multicomponent FMM model, arguments \code{A}, \code{alpha}, \code{beta} and \code{omega} are vectors of length \eqn{m}, where \eqn{m} represents the number of FMM waves. With different lengths, the smaller vectors will be replicate until thay are the same length as the longest vector.
 
-With \code{sigmaNoise = s}, \code{s>0}, the \code{generate_FMM} function uses \code{rnorm(length.out, 0, sigmaNoise)} to create the normally distributed noise and adds it to the simulated values.
+With \code{sigmaNoise = s}, \code{s>0}, the \code{generateFMM} function uses \code{rnorm(length.out, 0, sigmaNoise)} to create the normally distributed noise and adds it to the simulated values.
 }
 
 \value{
@@ -80,14 +80,14 @@ Rueda C, Larriba Y, Peddada SD (2019).
 
 \examples{
 # Simulate data from a monocomponent FMM model. A plot with the simulated model is shown
-generate_FMM(M = 2,A = 3,a = 1.5,b = 2.3,w = 0.1, outvalues = FALSE)
+generateFMM(M = 2,A = 3,alpha = 1.5,beta = 2.3, omega = 0.1, outvalues = FALSE)
 
 # Add a gaussian noise with standard deviation 0.3. The numeric results are returned
-generate_FMM(M = 2, A = 3, a = 1.5, b = 2.3, w = 0.1,
+generateFMM(M = 2, A = 3, alpha = 1.5, beta = 2.3, omega = 0.1,
              sigmaNoise = 0.3, plot = FALSE, outvalues = TRUE)
 
 # Simulate data from a multicomponent FMM model with two FMM waves
 # both with amplitude parameter = 2
-generate_FMM(M = 0, A = 2, a = c(1.5, 3.4), b = c(0.2, 2.3), w = c(0.1, 0.2))
+generateFMM(M = 0, A = 2, alpha = c(1.5, 3.4), beta = c(0.2, 2.3), omega = c(0.1, 0.2))
 
 }

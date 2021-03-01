@@ -41,9 +41,9 @@ plotFMM(objFMM, components = FALSE, plotAlongPeriods = FALSE,
 
 \examples{
 # Simulates an scenario in which an FMM model is suitable,
-res <- generate_FMM(2,3,1.5,2.3,0.1,outvalues = TRUE,sigmaNoise = 0.3, plot=FALSE)
+res <- generateFMM(2,3,1.5,2.3,0.1,outvalues = TRUE,sigmaNoise = 0.3, plot=FALSE)
 # then a FMM model is fitted to the data.
-fit <- fitFMM(res$y, lengthAlphaGrid=20,lengthOmegaGrid=12)
+fit <- fitFMM(res$y, lengthAlphaGrid = 10,lengthOmegaGrid = 5)
 plotFMM(fit)
 
 # Components plot of FMM Model fitted to neuronal data with various optional aesthetics
@@ -56,16 +56,9 @@ plotFMM(fittedFMM2, components = TRUE,
 	       legendInComponentsPlot = FALSE,
 	       textExtra = "Neuronal Data")
 
-# With ggplot2, customizable plots can be created,
-library(ggplot2)
-# standard plots
-plotFMM(fittedFMM2, use_ggplot2 = TRUE)
-# and components plots
-plotFMM(fittedFMM2, components = TRUE, use_ggplot2 = TRUE)
-
 # Plot of fitted model to more than one period.
 data("mouseGeneExp")
 fittedFMM2<-fitFMM(mouseGeneExp, nPeriods = 2,
-                   lengthAlphaGrid = 20,lengthOmegaGrid = 10)
+                   lengthAlphaGrid = 10,lengthOmegaGrid = 5)
 plotFMM(fittedFMM2, plotAlongPeriods = TRUE)
 }

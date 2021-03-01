@@ -207,7 +207,7 @@ refineFMM <- function(vData, nPeriods = 1, timePoints = NULL,
 
   if(showTime){
     time.end <- Sys.time()
-    cat(time.end-time.ini)
+    print(time.end-time.ini)
   }
 
   res@nPeriods <- nPeriods

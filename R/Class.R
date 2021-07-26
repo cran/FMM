@@ -33,4 +33,3 @@ getR2 <- function(objFMM) { objFMM@R2 }
 getNIter <- function(objFMM) { objFMM@nIter }
 
 
-

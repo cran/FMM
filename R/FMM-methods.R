@@ -4,14 +4,14 @@
 #  coef.FMM                   coef method for S4 class 'FMM'
 #  fitted.FMM                 fitted method for S4 class 'FMM'
 #  resid.FMM                  resid method for S4 class 'FMM'
-#  show.FMM                   print method for S4 class 'FMM'
+#  show.FMM                   show method for S4 class 'FMM'
 ################################################################################
 
 # ------------------------------------------------------------------------------
 setMethod("summary", signature(object="FMM"),function(object,...) {
 
   # Checks
-  if (class(object)!= "FMM"){stop("Object must be of class 'FMM'")}
+  if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
 
   x <- object
   nComp <- max(c(length(getAlpha(x)),length(getBeta(x)),length(getOmega(x))),na.rm = TRUE)
@@ -74,7 +74,7 @@ setMethod("summary", signature(object="FMM"),function(object,...) {
 #
 setMethod("coef", "FMM",function(object,...) {
   # Checks
-  if (class(object)!= "FMM"){stop("Object must be of class 'FMM'")}
+  if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
 
   x <- object
   nComp <- max(c(length(getAlpha(x)),length(getBeta(x)),length(getOmega(x))),na.rm = TRUE)
@@ -84,7 +84,7 @@ setMethod("coef", "FMM",function(object,...) {
   if (!is.null(getM(x)) & !is.null(getA(x)) & !is.null(getAlpha(x)) & !is.null(getBeta(x)) & !is.null(getOmega(x))) {
     Names <- c("A","alpha","beta","omega")
     coef.wave <- as.data.frame(t(sapply(1:nComp, function(i)
-                                          c(getA(x)[i],getAlpha(x)[i],getBeta(x)[i],getOmega(x)[i]))))
+      c(getA(x)[i],getAlpha(x)[i],getBeta(x)[i],getOmega(x)[i]))))
     rownames(coef.wave) <- paste("FMM wave ",1:nComp,": ", sep="")
     colnames(coef.wave) <- Names
     coef.list <- list(M = getM(x), wave = coef.wave)
@@ -101,7 +101,7 @@ setMethod("coef", "FMM",function(object,...) {
 #
 setMethod("fitted", "FMM", function(object,...) {
   # Checks
-  if (class(object)!= "FMM"){stop("Object must be of class 'FMM'")}
+  if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
 
   x <- object
 
@@ -119,7 +119,7 @@ setMethod("fitted", "FMM", function(object,...) {
 #
 setMethod("resid", "FMM", function(object,...) {
   # Checks
-  if (class(object)!= "FMM"){stop("Object must be of class 'FMM'")}
+  if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
 
   x <- object
 
@@ -135,41 +135,46 @@ setMethod("resid", "FMM", function(object,...) {
   return(res)
 })
 
-# ------------------------------------------------------------------------------
-# show method for S4 class FMM
-#
-setMethod("show", signature(object="FMM"),function(object) {
+addShowMethod<-function(){
+  rlang::env_unlock(env = asNamespace('FMM'))
+  rlang::env_binding_unlock(env = asNamespace('FMM'))
+  setMethod("show", signature(object="FMM"),function(object) {
+    #
+    # Checks
+    if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
 
-  # Checks
-  if (class(object)!= "FMM"){stop("Object must be of class 'FMM'")}
+    text<-""
 
-  x <- object
-  nComp <- max(c(length(getAlpha(x)),length(getBeta(x)),length(getOmega(x))),na.rm = TRUE)
+    x <- object
+    nComp <- max(c(length(getAlpha(x)),length(getBeta(x)),length(getOmega(x))),na.rm = TRUE)
 
-  # Title:
-  cat("\nTitle:\n", "FMM model with ", nComp, " components", "\n", sep = "")
+    # Title:
+    cat("\nTitle:\n", "FMM model with ", nComp, " components", "\n", sep = "")
 
-  # Coefficients:
-  if (!is.null(getM(x)) & !is.null(getA(x)) & !is.null(getAlpha(x)) & !is.null(getBeta(x)) & !is.null(getOmega(x))) {
-    coef.list <- coef(x)
-    cat("\nCoefficients:\n")
-    cat(paste("M (Intercept): ", round(coef.list$M, digits = 4),"\n", sep=""))
-    print(round(coef.list$wave, digits = 4))
-    cat("\n")
-  }
-
-  # R-squared:
-  R.sq <- NULL
-  if (!is.null(getR2(x))){
-    R.sq <- getR2(x)
-    if(nComp > 1){
-      R.sq <- c(R.sq,sum(getR2(x)))
-      names(R.sq) <- c(paste("Wave",1:nComp,sep=" "),"Total")
+    # Coefficients:
+    if (!is.null(getM(x)) & !is.null(getA(x)) & !is.null(getAlpha(x)) & !is.null(getBeta(x)) & !is.null(getOmega(x))) {
+      coef.list <- coef(x)
+      cat("\nCoefficients:\n")
+      cat(paste("M (Intercept): ", round(coef.list$M, digits = 4),"\n", sep=""))
+      print(round(coef.list$wave, digits = 4))
+      cat("\n")
     }
-    cat("\nR-squared:\n")
-    print(round(R.sq, digits = 4))
-    cat("\n")
-  }
 
-})
+    # R-squared:
+    R.sq <- NULL
+    if (!is.null(getR2(x))){
+      R.sq <- getR2(x)
+      if(nComp > 1){
+        R.sq <- c(R.sq,sum(getR2(x)))
+        names(R.sq) <- c(paste("Wave",1:nComp,sep=" "),"Total")
+      }
+      cat("\nR-squared:\n")
+      print(round(R.sq, digits = 4))
+      cat("\n")
+    }
 
+  })
+
+  rlang::env_binding_lock(env = asNamespace('FMM'))
+  rlang::env_lock(asNamespace('FMM'))
+}

@@ -79,14 +79,14 @@ resid(object,...)
 
 \examples{
 ## Generate example data:
-fmm2.data <- generateFMM(0, 2, c(1.5, 3.4), c(0.2, 2.3), c(0.1, 0.2),
+fmm2.data <- generateFMM(0, rep(2, 2), c(1.5, 3.4), c(0.2, 2.3), c(0.1, 0.2),
                     plot = FALSE, outvalues = TRUE,
                     sigmaNoise = 0.5) # add a gaussian noise with sigma = 0.5
 
 ## Fit the FMM model with nback = 2 component
 ## fit is an object of S4 class 'FMM'
 fit <- fitFMM(vData = fmm2.data$y,timePoints = fmm2.data$t,nback = 2,
-              lengthAlphaGrid = 24,lengthOmegaGrid = 10, numReps = 1)
+              lengthAlphaGrid = 24,lengthOmegaGrid = 10)
 
 ## Extract coefficients of the model:
 coef(fit)

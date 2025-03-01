@@ -15,28 +15,34 @@
 #'
 #' @param nback Number of FMM components to be fitted. Its default value is 1.
 #'
+#' @param maxiter Maximum number of iterations for the backfitting algorithm. By default, it is set at \code{nback}.
+#'
 #' @param betaOmegaRestrictions An integer vector of length \code{nback} indicating which FMM waves are constrained to have equal \code{beta} and \code{omega} parameters. For example, \code{c(1,1,1,2,2)} indicates that \code{beta1=beta2=beta3} and
 #'   \code{beta4=beta5} as well as \code{omega1=omega2=omega3} and \code{omega4=omega5}. In brief, some waves are restricted to have the same shape. Its default value is the sequence \code{1:nback} to fit the FMM model without restrictions on shape parameters (\code{beta} and \code{omega}).
 #'
-#' @param maxiter Maximum number of iterations for the backfitting algorithm. By default, it is set at \code{nback}.
-#'
 #' @param stopFunction Function to check the convergence criterion for the backfitting algorithm (see Details).
+#'
+#' @param omegaMin Lower bound for omega parameter and \eqn{0<omega_{Min}<omega_{Max}<1}. By default, \code{omegaMin = 0.0001}.
+#'
+#' @param omegaMax Upper bound for omega parameter and \eqn{0<omega_{Min}<omega_{Max}<1}. By default, \code{omegaMin = 0.9999}.
 #'
 #' @param lengthAlphaGrid Precision of the grid of alpha in the search of the best model. If it is increased, more possible values of alpha will be considered, resulting in an increasing in the computation time too.
 #'   By default, it is set to 48 possible values of alpha, equally spaced between 0 and \eqn{2\pi}.
 #'
 #' @param lengthOmegaGrid Precision of the grid of omega in the search of the best model. If it is increased, more possible values of omega will be considered, resulting in an increasing in the computation time too.
-#'   By default it is set to 24 possible values of omega, equally spaced between 0 and 1 in a logarithmic way.
+#'   By default it is set to 24 possible values of omega.
 #'
-#' @param numReps Number of times (alpha, omega) parameters are refined.
+#' @param omegaGrid Set of initial omega values in the search of the best model. By default, \code{lengthOmegaGrid} equally spaced values between \code{omegaMin} and \code{omegaMax} in a logarithmic way.
+#'
+#' @param numReps Number of times (alpha, omega) parameters are refined. Deprecated for non restricted models.
 #'
 #' @param showProgress \code{TRUE} to display a progress indicator on the console.
 #'
 #' @param showTime \code{TRUE} to display execution time on the console.
 #'
-#' @param parallelize \code{TRUE} to use parallelized procedure to fit FMM model. Its default value is \code{FALSE}. When it is \code{TRUE}, the number of cores to be used is equal to 12, or if the machine has less, the number of cores - 1.
+#' @param parallelize \code{TRUE} to use parallelized procedure to fit restricted FMM model. Its default value is \code{FALSE}. When it is \code{TRUE}, the number of cores to be used is equal to 12, or if the machine has less, the number of cores - 1.
 #'
-#' @param restrExactSolution \code{FALSE} to use an aproximated algorithm to fit the FMM model with restrictions (default). If \code{TRUE} is specified, the exact solution is computed.
+#' @param restrExactSolution \code{FALSE} to use an aproximated algorithm to fit the model (default). If \code{TRUE} is specified, an nearly exact solution is computed.
 #'
 #' @details
 #' Data will be collected over \code{nPeriods} periods. When \code{nPeriods > 1} the fitting is carried out by averaging the data collected
@@ -84,17 +90,6 @@
 #' fit <- fitFMM(FMM_data$y, lengthAlphaGrid = 10, lengthOmegaGrid = 10)
 #' summary(fit)
 #'
-#' # To see the differences between number of repetitions.
-#' FMM_data <- generateFMM(2, 1, 1.5, 1.1 ,0.14 , outvalues = TRUE, sigmaNoise = 0.15, plot=TRUE)
-#' fit1 <- fitFMM(FMM_data$y, lengthAlphaGrid = 6, lengthOmegaGrid = 3, numReps = 1)
-#' fit2 <- fitFMM(FMM_data$y, lengthAlphaGrid = 6, lengthOmegaGrid = 3, numReps = 6,
-#'                showProgress = FALSE)  # suppress progress messages
-#' getSSE(fit1)
-#' getSSE(fit2)
-#'
-#' # Finer resolution grid.
-#' fit3 <- fitFMM(FMM_data$y, lengthAlphaGrid = 10, lengthOmegaGrid = 5, numReps = 1)
-#' getSSE(fit3)
 #'
 #' # Two component FMM model with beta and omega restricted
 #' restFMM2w_data <- generateFMM(M = 3, A = c(7, 4), alpha = c(0.5, 5), beta = c(rep(3, 2)),
@@ -104,78 +99,70 @@
 #'                      lengthAlphaGrid = 15, lengthOmegaGrid = 10,
 #'                      betaOmegaRestrictions = c(1, 1))
 #' plotFMM(fit2w.rest, components = TRUE)
-#'
 fitFMM <- function(vData, nPeriods = 1, timePoints = NULL,
-                   nback = 1, betaOmegaRestrictions = 1:nback,
-                   maxiter = nback, stopFunction = alwaysFalse,
+                   nback = 1, maxiter = nback,
+                   betaOmegaRestrictions = 1:nback,
+                   stopFunction = alwaysFalse,
+                   omegaMin = 0.0001, omegaMax = 0.9999,
                    lengthAlphaGrid = 48, lengthOmegaGrid = 24,
-                   numReps = 3, showProgress = TRUE, showTime = FALSE,
+                   omegaGrid = NULL,
+                   numReps = 1, showProgress = FALSE, showTime = FALSE,
                    parallelize = FALSE, restrExactSolution = FALSE){
-
-  alphaGrid <- seq(0, 2*pi, length.out = lengthAlphaGrid)
-  omegaMin <- 0.0001
-  omegaMax <- 1
-  omegaGrid <- exp(seq(log(omegaMin),log(omegaMax),length.out = lengthOmegaGrid))
 
   betaOmegaRestrictions <- sort(betaOmegaRestrictions)
 
-  if(showTime) time.ini <- Sys.time()
+  # 0. Check arguments
+  checkArguments(vData = vData, nPeriods = nPeriods, timePoints = timePoints,
+                 nback = nback, maxiter = maxiter, betaOmegaRestrictions = betaOmegaRestrictions,
+                 omegaMin = omegaMin, omegaMax = omegaMax,
+                 lengthAlphaGrid = lengthAlphaGrid, lengthOmegaGrid = lengthOmegaGrid,
+                 omegaGrid = omegaGrid, numReps = numReps, parallelize = parallelize)
 
-  # minimum number of observations for fitting
-  if(length(vData) < 5){
-    stop("The minimum number of observations should be 5")
-  }
-
-  # If data has more than one period, it must be summarized
+  # 1. If data has more than one period, it must be summarized
   if(nPeriods > 1){
-    n <- length(vData)
-    if(n %% nPeriods != 0) stop("Data length is not a multiple of nPeriods")
-    dataMatrix <- matrix(vData, nrow = nPeriods, ncol = n/nPeriods, byrow = TRUE)
+    dataMatrix <- matrix(vData, nrow = nPeriods, ncol = length(vData)/nPeriods, byrow = TRUE)
     summarizedData <- apply(dataMatrix, 2, mean)
   } else {
     summarizedData <- vData
   }
 
-  # If data is constant
-  if(sd(vData,na.rm=TRUE) == 0){
-    stop("Data are constant")
+  # 2. Generation of the time points
+  if(is.null(timePoints)) timePoints <- seqTimes(length(summarizedData))
+
+  # 3. Alpha-omega grid definition and precalculations
+  alphaGrid <- seqTimes(lengthAlphaGrid)
+  if(is.null(omegaGrid)){
+    omegaGrid <- exp(seq(log(omegaMin), log(omegaMax), length.out = lengthOmegaGrid+1))[1:lengthOmegaGrid]
+  }else{
+    omegaGrid <- omegaGrid[omegaGrid>=omegaMin & omegaGrid<=omegaMin]
   }
+  gridList <- precalculateBase(alphaGrid = alphaGrid, omegaGrid = omegaGrid, timePoints = timePoints)
 
-  # Generation of the time points
-  if(is.null(timePoints)){
-    timePoints<-seqTimes(length(summarizedData))
-  } else {
-    if(any(timePoints < 0) | any(timePoints > 2*pi)){
-      stop("timePoints must be between 0 and 2*pi")
-    }
-    if(length(timePoints) != length(summarizedData)){
-      stop("timePoints must have the same length as one-period data")
-    }
-  }
+  # 4. Initial time
+  if(showTime) time.ini <- Sys.time()
 
-  # Used apply function for compute FMM models
-  usedApply_Cluster <- getApply(parallelize = parallelize)
-  usedApply <- usedApply_Cluster[[1]]
-
+  # 5. Fitting process
   ### fitFMM_unit
   if(nback == 1){
     fittedFMM <- fitFMM_unit(vData = summarizedData, timePoints = timePoints,
                              lengthAlphaGrid = lengthAlphaGrid, lengthOmegaGrid = lengthOmegaGrid,
                              alphaGrid = alphaGrid, omegaMin = omegaMin, omegaMax = omegaMax,
-                             omegaGrid = omegaGrid, numReps = numReps, usedApply = usedApply)
+                             omegaGrid = omegaGrid, gridList = gridList)
   } else {
     ### fitFMM_back:
     if(length(unique(betaOmegaRestrictions)) == nback){
+
       fittedFMM <- fitFMM_back(vData = summarizedData, nback = nback, timePoints = timePoints,
                                maxiter = maxiter, stopFunction = stopFunction,
                                lengthAlphaGrid = lengthAlphaGrid, lengthOmegaGrid = lengthOmegaGrid,
                                alphaGrid = alphaGrid, omegaMin = omegaMin, omegaMax = omegaMax,
-                               omegaGrid = omegaGrid, numReps = numReps, showProgress = showProgress,
-                               usedApply = usedApply)
-    ### fitFMM_restr:
+                               omegaGrid = omegaGrid, showProgress = showProgress, gridList = gridList)
+
+      ### fitFMM_restr:
     } else {
       #### Exact solution
       if(restrExactSolution){
+        if(parallelize) doParallel::registerDoParallel(cores=parallel::detectCores()-1)
         fittedFMM <- fitFMM_restr(vData = summarizedData, nback = nback,
                                   betaRestrictions = betaOmegaRestrictions,
                                   omegaRestrictions = betaOmegaRestrictions,
@@ -183,8 +170,9 @@ fitFMM <- function(vData, nPeriods = 1, timePoints = NULL,
                                   lengthAlphaGrid = lengthAlphaGrid, lengthOmegaGrid = lengthOmegaGrid,
                                   alphaGrid = alphaGrid, omegaMin = omegaMin, omegaMax = omegaMax,
                                   omegaGrid = omegaGrid, numReps = numReps, parallelize = parallelize)
-      #### Approximated solution
+        #### Approximated solution
       } else {
+        if(parallelize) doParallel::registerDoParallel(cores=parallel::detectCores()-1)
         fittedFMM <- fitFMM_restr_omega_beta(vData = summarizedData, nback = nback,
                                              betaRestrictions = betaOmegaRestrictions,
                                              omegaRestrictions = betaOmegaRestrictions,
@@ -197,30 +185,18 @@ fitFMM <- function(vData, nPeriods = 1, timePoints = NULL,
     }
   }
 
-  cluster <- usedApply_Cluster[[2]]
-
-  if(!is.null(cluster)) parallel::stopCluster(cluster)
-
-  if(showTime){
-    time.end <- Sys.time()
-    print(time.end-time.ini)
-  }
-
   fittedFMM@nPeriods <- nPeriods
   fittedFMM@data <- vData
 
+  # 6. Final time
+  if(showTime) Sys.time()-time.ini
 
-  # Restricted algorithm may find models with A<0
-  if(any(getA(fittedFMM) < 0)) {
-    stop("Invalid solution: check function input parameters.")
-  }
+  # 7. Check for invalid or extreme solutions
+  checkSolution(fittedFMM = fittedFMM, omegaMin = omegaMin, omegaMax = omegaMax)
 
   # "Hack" to add show method without hindering paralellized procedure
   addShowMethod()
 
   return(fittedFMM)
 }
-
-
-
 

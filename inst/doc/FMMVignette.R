@@ -5,11 +5,11 @@ knitr::opts_chunk$set(
 )
 
 ## ----eval=FALSE---------------------------------------------------------------
-#  install.packages("FMM")
+# install.packages("FMM")
 
 ## ----eval=FALSE---------------------------------------------------------------
-#  install.packages("devtools")
-#  devtools::install_github("alexARC26/FMM")
+# install.packages("devtools")
+# devtools::install_github("FMMGroupVa/FMM")
 
 ## -----------------------------------------------------------------------------
 library("FMM")
@@ -38,11 +38,9 @@ getFMMPeaks(fit.fmm2, timePointsIn2pi = TRUE)
 
 ## -----------------------------------------------------------------------------
 fit1 <- fitFMM(vData = fmm2.data$y, timePoints = fmm2.data$t, nback = 2, 
-               lengthAlphaGrid = 48, lengthOmegaGrid = 24, numReps = 3,
-               showTime = TRUE)
+               lengthAlphaGrid = 48, lengthOmegaGrid = 24, showTime = TRUE)
 fit2 <- fitFMM(vData = fmm2.data$y, timePoints = fmm2.data$t, nback = 2, 
-               lengthAlphaGrid = 14, lengthOmegaGrid = 7, numReps = 6,
-               showTime = TRUE)
+               lengthAlphaGrid = 14, lengthOmegaGrid = 7, showTime = TRUE)
 getR2(fit1)
 getR2(fit2)
 
@@ -67,7 +65,7 @@ fit.rfmm <- fitFMM(vData = rfmm.data$y, timePoints = rfmm.data$t, nback = 4,
                    lengthAlphaGrid = 24, lengthOmegaGrid = 15, numReps = 5)
 summary(fit.rfmm)
 
-## ---- message=FALSE, fig.height=5, fig.width=10-------------------------------
+## ----message=FALSE, fig.height=5, fig.width=10--------------------------------
 titleText <- "Two FMM waves"
 par(mfrow=c(1,2))
 # default plot
@@ -75,7 +73,7 @@ plotFMM(fit.fmm2, textExtra = titleText)
 # component plot
 plotFMM(fit.fmm2, components = TRUE, textExtra = titleText, legendInComponentsPlot = TRUE)
 
-## ---- message=FALSE, fig.height=5, fig.width=10-------------------------------
+## ----message=FALSE, fig.height=5, fig.width=10--------------------------------
 library("RColorBrewer")
 library("ggplot2")
 library("gridExtra")

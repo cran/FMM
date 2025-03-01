@@ -26,7 +26,7 @@ str(ecgData)
 \references{
 Goldberger A, Amaral L, Glass L, Hausdorff J et al. (2000).
 A qrs detection and r point recognition method for wearable single-lead ecg devices.
-\emph{Circulation}, \bold{101} (23), E215-20. \url{https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5621148/}
+\emph{Circulation}, \bold{101} (23), E215-20. \url{https://www.mdpi.com/1424-8220/17/9/1969}
 
 Laguna P, Mark RG, Goldberg A,  Moody GB (1997).
 A database for evaluation of algorithms for measurement of qt and other waveform intervals

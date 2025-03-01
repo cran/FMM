@@ -2,7 +2,6 @@
 # Auxiliary internal functions
 # Functions:
 #   step1FMM:        M, A and beta initial parameter estimations.
-#   bestStep1:       to find the optimal initial parameters estimation.
 #   step2FMM:        second step of FMM fitting process.
 #   refineFMM:       fitFMM from a previous objectFMM.
 #   PV:              percentage of variability explained.
@@ -11,136 +10,53 @@
 #   seqTimes:        to build a sequence of equally time points spaced in range
 #                    [0,2*pi].
 #   calculateCosPhi: to calculate components' cos(phi(t)).
-#   getApply:        returns the parallelized apply function depending on the OS.
 ################################################################################
 
 
 ################################################################################
-# Internal function: to estimate M, A and beta initial parameters
-# also returns residual sum of squared (RSS).
+# Internal function: Returns the RSS for an estimation given (alpha,omega).
 # Arguments:
-#    alphaOmegaParameters: vector of the parameters alpha and omega
-#    vData: data to be fitted an FMM model.
-#    timePoints: one single period time points.
-# Returns a 6-length numerical vector: M, A, alpha, beta, omega and RSS
+#   - optBase: A list containing precalculated values to avoid redundant operations:
+#       1. "base": inv(X'X)X', where X = [1, cos(tStar), sin(tStar)]
+#       2. "alpha"
+#       3. "omega"
+#       4. "cost": cos(tStar)
+#       5. "sint": sin(tStar)
+#
+#   - vData: Numeric vector representing the data to be fitted with the FMM model.
+#
+# Returns:
+#   A numeric vector of length 3 with the following elements: alpha, omega, RSS
 ################################################################################
-step1FMM <- function(alphaOmegaParameters, vData, timePoints) {
 
-  alphaParameter <- alphaOmegaParameters[1]
-  omegaParameter <- alphaOmegaParameters[2]
-
-  mobiusTerm <- 2*atan(omegaParameter*tan((timePoints - alphaParameter)/2))
-  tStar <- alphaParameter + mobiusTerm
-
-  # Given alpha and omega, a cosinor model is computed with t* in
-  # order to obtain delta (cosCoeff) and gamma (sinCoeff).
-  # Linear Model exact expressions are used to improve performance.
-  costStar <- cos(tStar)
-  sentstar <- sin(tStar)
-  covMatrix <- stats::cov(cbind(vData, costStar, sentstar))
-  denominator <- covMatrix[2,2]*covMatrix[3,3] - covMatrix[2,3]^2
-  cosCoeff <- (covMatrix[1,2]*covMatrix[3,3] -
-                 covMatrix[1,3]*covMatrix[2,3])/denominator
-  sinCoeff <- (covMatrix[1,3]*covMatrix[2,2] -
-                 covMatrix[1,2]*covMatrix[2,3])/denominator
-  mParameter <- mean(vData) - cosCoeff*mean(costStar) - sinCoeff*mean(sentstar)
-
-  phiEst <- atan2(-sinCoeff, cosCoeff)
-  aParameter <- sqrt(cosCoeff^2 + sinCoeff^2)
-  betaParameter <- (phiEst+alphaParameter)%%(2*pi)
-
-  mobiusRegression <- mParameter + aParameter*cos(betaParameter + mobiusTerm)
-  residualSS <- sum((vData - mobiusRegression)^2)/length(timePoints)
-
-  return(c(mParameter, aParameter, alphaParameter, betaParameter,
-           omegaParameter, residualSS))
+step1FMM <- function(optBase, vData) {
+  # Linear parameters estimation and RSS
+  pars <- optBase[["base"]] %*% vData
+  residualSS <- sum((vData - pars[1] - pars[2]*optBase[["cost"]] - pars[3]*optBase[["sint"]])^2)
+  return(c(optBase[["alpha"]], optBase[["omega"]], residualSS))
 }
 
 ################################################################################
-# Internal function: to find the optimal initial parameter estimation
+# Internal function: Profile likelihood (alpha, omega)
 # Arguments:
-#    vData: data to be fitted an FMM model.
-#    step1: a data.frame with estimates of
-#           M, A, alpha, beta, omega, RSS as columns.
-# Returns the optimal row of step1 argument.
-# optimum: minimum RSS with several stability conditions.
-################################################################################
-bestStep1 <- function(vData, step1){
-
-  # step1 in decreasing order by RSS
-  orderedModelParameters <- order(step1[,"RSS"])
-
-  maxVData <- max(vData)
-  minVData <- min(vData)
-  nObs <- length(vData)
-
-  # iterative search: go through rows ordered step 1
-  #    until the first one that verifies the stability conditions
-  bestModelFound <- FALSE
-  i <- 1
-  while(!bestModelFound){
-    # parameters
-    mParameter <- step1[orderedModelParameters[i], "M"]
-    aParameter <- step1[orderedModelParameters[i], "A"]
-    sigma <- sqrt(step1[orderedModelParameters[i], "RSS"]*nObs/(nObs-5))
-
-    # stability conditions
-    amplitudeUpperBound <- mParameter + aParameter
-    amplitudeLowerBound <- mParameter - aParameter
-    rest1 <- amplitudeUpperBound <= maxVData + 1.96*sigma
-    rest2 <- amplitudeLowerBound >= minVData - 1.96*sigma
-
-    # it is necessary to check that there are no NA,
-    # because it can be an extreme solution
-    if(is.na(rest1)) rest1 <- FALSE
-    if(is.na(rest2)) rest2 <- FALSE
-
-    if(rest1 & rest2){
-      bestModelFound <- TRUE
-    } else {
-      i <- i+1
-    }
-
-    if(i > nrow(step1))
-      return(NULL)
-  }
-
-  return(step1[orderedModelParameters[i],])
-}
-
-################################################################################
-# Internal function: second step of FMM fitting process
-# Arguments:
-#   parameters: M, A, alpha, beta, omega initial parameter estimations
+#   parameters: alpha, omega initial parameter estimations
 #   vData: data to be fitted an FMM model.
 #   timePoints: one single period time points.
-#   omegaMax: max value for omega.
+#   omegaMin: min value for omega (must be >0).
+#   omegaMax: max value for omega (must be <1).
 ################################################################################
-step2FMM <- function(parameters, vData, timePoints, omegaMax){
 
-  nObs <- length(timePoints)
-
-  # FMM model and residual sum of squares
-  modelFMM <- parameters[1] + parameters[2] *
-    cos(parameters[4]+2*atan2(parameters[5]*sin((timePoints - parameters[3])/2),
-                                cos((timePoints - parameters[3])/2)))
-  residualSS <- sum((modelFMM - vData)^2)/nObs
-  sigma <- sqrt(residualSS*nObs/(nObs - 5))
-
-  # When amplitude condition is valid, it returns RSS
-  # else it returns infinite.
-  amplitudeUpperBound <- parameters[1] + parameters[2]
-  amplitudeLowerBound <- parameters[1] - parameters[2]
-  rest1 <- amplitudeUpperBound <= max(vData) + 1.96*sigma
-  rest2 <- amplitudeLowerBound >= min(vData) - 1.96*sigma
-
-  # Other integrity conditions that must be met
-  rest3 <- parameters[2] > 0  # A > 0
-  rest4 <- parameters[5] > 0  &  parameters[5] <= omegaMax # omega in (0, omegaMax]
-  if(rest1 & rest2 & rest3 & rest4)
-    return(residualSS)
-  else
+step2FMM <- function(parameters, vData, timePoints, omegaMin, omegaMax){
+  if(parameters[2] > omegaMin  &  parameters[2] < omegaMax){
+    # Linear parameters estimation
+    nonlinearMob = 2*atan(parameters[2]*tan((timePoints-parameters[1])/2))
+    DM <- cbind(rep(1, length(timePoints)), cos(nonlinearMob), sin(nonlinearMob))
+    pars <- stats::.lm.fit(DM, vData)$coefficients
+    # Return RSS
+    return(sum((vData - pars[1] - pars[2]*cos(nonlinearMob) - pars[3]*sin(nonlinearMob))^2))
+  }else{
     return(Inf)
+  }
 }
 
 ################################################################################
@@ -200,47 +116,104 @@ calculateCosPhi <- function(alpha, beta, omega, timePoints){
 }
 
 ################################################################################
-# Internal function: returns the parallelized apply function depending on the OS.
-# Returns the apply function to be used.
+# Internal function: to precalculate inv(M'M)M' for M=[1, cos(t*), sin(t*)].
+# Arguments:
+#   alphagrid, omegaGrid: search grid.
+#   timePoints: time points in which the FMM model is computed.
+# Returns a list where each element is a list with elements:
+#   base: inv(M'M)M',
+#   alpha, omega,
+#   cost: cos(tStar), sint: sin(tStar)
 ################################################################################
-getApply <- function(parallelize = FALSE){
 
-  getApply_Rbase <- function(){
-    usedApply <- function(FUN, X, ...) t(apply(X = X, MARGIN = 1, FUN = FUN, ...))
-  }
-
-  getParallelApply_Windows <- function(parallelCluster){
-    usedApply <- function(FUN, X, ...) t(parallel::parApply(parallelCluster, FUN = FUN,
-                                                            X = X, MARGIN = 1, ...))
-    return(usedApply)
-  }
-
-  parallelFunction_Unix<-function(nCores){
-    # A parallelized apply function does not exist, so it must be translated to a lapply
-    usedApply <- function(FUN, X, ...){
-      matrix(unlist(parallel::mclapply(X = asplit(X, 1), FUN = FUN, mc.cores = nCores, ...)),
-             nrow = nrow(X), byrow = T)
-    }
-    return(usedApply)
-  }
-
-  nCores <- min(12, parallel::detectCores() - 1)
-
-  if(parallelize){
-    # different ways to implement parallelization depending on OS:
-    if(.Platform$OS.type == "windows"){
-      parallelCluster <- parallel::makePSOCKcluster(nCores)
-      doParallel::registerDoParallel(parallelCluster)
-      usedApply <- getParallelApply_Windows(parallelCluster)
+precalculateBase <- function(alphaGrid, omegaGrid, timePoints){
+  # Expanded grid: each row contains a pair (alpha, omega)
+  grid <- expand.grid(alphaGrid, omegaGrid)
+  optBase <- apply(grid, 1, FUN = function(x){
+    x <- as.numeric(x)
+    nonlinearMob = 2*atan(x[2]*tan((timePoints-x[1])/2))
+    M <- cbind(timePoints*0+1, cos(nonlinearMob), sin(nonlinearMob))
+    mat <- t(M) %*% M
+    # Check if matrix is invertible, too low omegas and extreme timepoints
+    # configurations lead to computationally singular systems
+    if (det(mat) < 10e-12){
+      return(NULL)
     }else{
-      usedApply <- parallelFunction_Unix(nCores)
-      parallelCluster <- NULL
+      return(list(base = solve(mat)%*%t(M),
+                  alpha = x[1], omega = x[2],
+                  cost = cos(nonlinearMob), sint = sin(nonlinearMob)))
     }
-  }else{
-    # R base apply:
-    usedApply <- getApply_Rbase()
-    parallelCluster <- NULL
+  }, simplify = FALSE)
+  optBase <- Filter(Negate(is.null), optBase)
+  return(optBase)
+}
+
+################################################################################
+# Internal function: to check if the arguments passed to fitFMM are correct
+# Arguments: See fitFMM function arguments
+################################################################################
+
+checkArguments <- function(vData, nPeriods, timePoints, nback, maxiter,
+                           betaOmegaRestrictions, omegaMin, omegaMax,
+                           lengthAlphaGrid, lengthOmegaGrid,
+                           omegaGrid, numReps, parallelize){
+  # Check grid values
+  if(omegaMin<=0) stop("Incorrect arguments: omegaMin must be greater than 0")
+  if(omegaMax>=1) stop("Incorrect arguments: omegaMax must be lower than 1")
+  if(omegaMin>=omegaMax) stop("Incorrect arguments: omegaMin must be lower than omegaMax")
+  if(lengthAlphaGrid <= 0) stop("Incorrect arguments: lengthAlphaGrid must be greater than 0")
+  if(lengthOmegaGrid <= 0) stop("Incorrect arguments: lengthOmegaGrid must be greater than 0")
+  if(!is.null(omegaGrid) & length(omegaGrid) == 0) stop("Incorrect arguments: omegaGrid is empty")
+  if(!is.null(omegaGrid) & length(omegaGrid[omegaGrid>omegaMin & omegaGrid<omegaMax]) == 0)
+    stop("Incorrect arguments: omegaGrid has no values in range [omegaMin, omegaMax]")
+
+  # Check data input
+  if(length(vData) < 5) stop("The minimum number of observations should be 5")
+  if(nPeriods > 1 & length(vData) %% nPeriods != 0) stop("Data length is not a multiple of nPeriods")
+  if(sd(vData, na.rm=TRUE) == 0) stop("Data are constant")
+
+  # Check timePoints input
+  if(!is.null(timePoints)){
+    timePoints <- sort(timePoints)
+    if(any(timePoints < 0) | any(timePoints > 2*pi)) stop("timePoints must be between 0 and 2*pi")
+    if(nPeriods == 1 & length(timePoints) != length(vData))
+      stop("timePoints must have the same length as one-period data")
+    if(max(diff(c(utils::tail(timePoints,1), timePoints)) %% (2*pi)) > pi/4 & length(vData) > 10)
+      warning("Detected large gaps between time points, which may cause unstable or nonsensical solutions.")
   }
 
-  return(list(usedApply, parallelCluster))
+
+  # Warn deprecated arguments
+  if(length(unique(betaOmegaRestrictions)) == nback && numReps>1)
+    warning("Argument 'numReps' is deprecated for unrestricted fittings. For a finer grid search, increase 'lengthAlphaGrid' and 'lengthOmegaGrid'.")
+  if(length(unique(betaOmegaRestrictions)) == nback && parallelize == TRUE)
+    warning("Argument 'parallelize' is deprecated for unrestricted fittings.")
+}
+
+################################################################################
+# Internal function: to check if the solution is valid
+# Arguments: object of class FMM, omegaMin and omegaMax
+################################################################################
+checkSolution <- function(fittedFMM, omegaMin, omegaMax){
+
+  # Omegas
+  if(any(getOmega(fittedFMM) == omegaMin)) warning("Detected unusually small omegas. Check your model parameters and input data.")
+
+  # Amplitudes
+  if(any(getA(fittedFMM) < 0)) stop("Invalid solution: check function input parameters.")
+
+  residuals <- fittedFMM@data
+  amplitudeFlag <- FALSE
+  for (i in 1:length(fittedFMM@alpha)) {
+    nonlinearMob = 2*atan(fittedFMM@omega[i]*tan((fittedFMM@timePoints-fittedFMM@alpha[i])/2))
+    DM <- cbind(fittedFMM@timePoints*0+1, cos(nonlinearMob), sin(nonlinearMob))
+    pars <- stats::.lm.fit(DM, residuals)$coefficients
+    sigmaHat <- sd(residuals - pars[1] - pars[2]*cos(nonlinearMob) - pars[3]*sin(nonlinearMob))
+    slack <- 0.1*diff(range(fittedFMM@data))
+    Ai <- fittedFMM@A[i]
+    if(pars[1]+Ai > max(residuals)+2*sigmaHat+slack |
+       pars[1]-Ai < min(residuals)-2*sigmaHat-slack) amplitudeFlag = TRUE
+    residuals <- residuals - pars[1] - pars[2]*cos(nonlinearMob) - pars[3]*sin(nonlinearMob)
+  }
+  if(amplitudeFlag) warning("Detected unusually large amplitudes. Check your model parameters and input data.")
 }

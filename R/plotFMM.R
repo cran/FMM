@@ -47,13 +47,6 @@
 #' library(ggplot2)
 #' # standard plots
 #' plotFMM(fittedFMM2, use_ggplot2 = TRUE)
-#' # modify x-axis with original timePoints
-#' timePoints <- getTimePoints(fittedFMM2)
-#' nObs <- length(timePoints)
-#' sTimePoints <- round(c(1, nObs*0.25, nObs*0.5, nObs*0.75, nObs))
-#' plotFMM(fittedFMM2, use_ggplot2 = TRUE) +
-#'   scale_x_continuous(breaks = sTimePoints,
-#'                      labels = function(x) round(timePoints[x],2))
 #' # and components plots
 #' plotFMM(fittedFMM2, components = TRUE, use_ggplot2 = TRUE)
 #'
@@ -64,7 +57,8 @@
 #' plotFMM(fittedFMM2, plotAlongPeriods = TRUE)
 
 plotFMM <- function(objFMM, components = FALSE, plotAlongPeriods = FALSE,
-                    use_ggplot2 = FALSE, legendInComponentsPlot = TRUE, textExtra = ""){
+                    use_ggplot2 = FALSE, legendInComponentsPlot = TRUE,
+                    textExtra = ""){
 
   nPeriods <- getNPeriods(objFMM)
   if(nPeriods > 1){
@@ -73,21 +67,32 @@ plotFMM <- function(objFMM, components = FALSE, plotAlongPeriods = FALSE,
     }else{
       vData <- getSummarizedData(objFMM)
     }
-  }else{vData <- getData(objFMM)}
+  }else{
+    vData <- getData(objFMM)
+    }
   nObs <- length(vData)
+  predictionPoints <- max(nObs, 500)
 
   if(plotAlongPeriods & !components){
     timePoints <- getTimePoints(objFMM)
     timePoints <- rep(timePoints, nPeriods)
+    # Significant time points to print x-axis marks
+    significantTimePoints <- c(1, round(c(nObs*0.25, nObs*0.5, nObs*0.75, nObs)/nPeriods))
   }else{
     timePoints <- getTimePoints(objFMM)
+    # Significant time points to print x-axis marks
+    significantTimePoints <- c(1,round(c(nObs*0.25, nObs*0.5, nObs*0.75, nObs)))
   }
 
-  significantTimePoints <- round(c(1, nObs*0.25, nObs*0.5, nObs*0.75, nObs))
+  # The plot will include additional time points to predict the signal.
+  denseTimePoints <- unique(seqTimes(predictionPoints), timePoints)
 
+  predictedSignal <- generateFMM(M = objFMM@M, A = objFMM@A, alpha = objFMM@alpha,
+                                 beta = objFMM@beta, omega = objFMM@omega, length.out = predictionPoints,
+                                 plot = FALSE)$y
   # Components plot: if there is more than one period, just the data from the first period will be plotted
   if(components){
-    title <- ifelse(textExtra != "", paste("Components FMM", textExtra, sep = " - "),"Components FMM")
+    title <- ifelse(textExtra != "", paste("Components FMM", textExtra, sep = " - "), "Components FMM")
     nComponents <- length(getAlpha(objFMM))
     # With more than 9 components, the selection of colors must be expanded
     if(nComponents > 9){
@@ -99,25 +104,32 @@ plotFMM <- function(objFMM, components = FALSE, plotAlongPeriods = FALSE,
     }
     componentNames<-paste("Wave ", 1:nComponents, sep = "")
 
-    predicted <- extractWaves(objFMM)
+    firstValue <- getData(objFMM)[1]
+    predicted <- list()
+    for(i in 1:length(objFMM@alpha)){
+      predictedComponent <- generateFMM(M = objFMM@M, A = objFMM@A[i], alpha = objFMM@alpha[i],
+                                    beta = objFMM@beta[i], omega = objFMM@omega[i],
+                                    length.out = predictionPoints, plot = FALSE)$y
+      predicted[[i]] <- predictedComponent - predictedComponent[1] + firstValue
+    }
 
     if(!use_ggplot2){
       yLimits<-c(min(sapply(predicted, min)), max(sapply(predicted, max)))
-      plot(1:nObs, vData, ylim = yLimits, xlab = "Time", ylab = "Response",
+      plot(timePoints, vData, ylim = yLimits, xlab = "Time", ylab = "Response",
            main = title, type = "n", xaxt = "n")
       for(i in 1:nComponents){
-        points(1:nObs, predicted[[i]], type = "l", lwd = 2, col = colorsForComponents[i])
+        points(denseTimePoints, predicted[[i]], type = "l", lwd = 2, col = colorsForComponents[i])
       }
-      axis(1, las = 1, at = significantTimePoints,
+      axis(1, las = 1, at = timePoints[significantTimePoints],
            labels = parse(text=paste("t[",significantTimePoints, "]", sep = "")))
       if(legendInComponentsPlot) legend("topright", legend = componentNames, col = colorsForComponents, lty = 1)
     } else {
       requireNamespace("ggplot2", quietly = TRUE)
       requireNamespace("RColorBrewer", quietly = TRUE)
 
-      df <- data.frame("Time" = rep(1:length(timePoints), nComponents),
+      df <- data.frame("Time" = rep(denseTimePoints, nComponents),
                        "Response" = unlist(predicted),
-                       "Components" = rep(componentNames, each = nObs))
+                       "Components" = rep(componentNames, each = predictionPoints))
 
       plot<-ggplot2::ggplot(data = df, ggplot2::aes_(x=~Time, y=~Response, group =~ Components,
                                                      color =~ Components)) +
@@ -127,8 +139,8 @@ plotFMM <- function(objFMM, components = FALSE, plotAlongPeriods = FALSE,
         ggplot2::theme_bw() +
         ggplot2::theme(legend.position = ifelse(legendInComponentsPlot,"bottom","none")) +
         ggplot2::labs(title = title) +
-        ggplot2::scale_x_continuous(breaks = significantTimePoints,
-                                    labels = function(x) parse(text=paste("t[",x,"]")))
+        ggplot2::scale_x_continuous(breaks = timePoints[significantTimePoints],
+                                    labels = parse(text = paste("t[",significantTimePoints,"]")))
       return(plot)
     }
 
@@ -136,37 +148,30 @@ plotFMM <- function(objFMM, components = FALSE, plotAlongPeriods = FALSE,
     title <- ifelse(textExtra != "", paste("Fitted FMM model",textExtra,sep = " - "),"Fitted FMM model")
 
     if(!use_ggplot2){
-      yLimits<-c(min(vData,getFittedValues(objFMM)), max(vData,getFittedValues(objFMM)))
-      plot(1:nObs, vData, xlab = "Time", ylab = "Response", main = title, xaxt = "n",
+      yLimits<-c(min(vData,predictedSignal), max(vData,predictedSignal))
+      plot(timePoints, vData, xlab = "Time", ylab = "Response", main = title, xaxt = "n",
            ylim = yLimits)
-      if(plotAlongPeriods){
-        points(1:nObs, rep(getFittedValues(objFMM), nPeriods), type = "l", col = 2, lwd = 2)
-      }else{
-        points(1:nObs, getFittedValues(objFMM), type = "l", col = 2, lwd = 2)
-      }
-      axis(1, las = 1, at = significantTimePoints,
+      points(denseTimePoints, predictedSignal, type = "l", col = 2, lwd = 2)
+      axis(1, las = 1, at = timePoints[significantTimePoints],
            labels = parse(text=paste("t[",significantTimePoints, "]", sep = "")))
     } else {
       requireNamespace("ggplot2", quietly = TRUE)
+      adjustedModel<-predictedSignal
+      original <- data.frame("Time" = timePoints, "Response" = vData)
+      fittedData <- data.frame("Time" = seqTimes(predictionPoints), "Response" = adjustedModel)
+      plot <- ggplot2::ggplot() +
 
-      if(plotAlongPeriods){
-        adjustedModel<-rep(getFittedValues(objFMM),nPeriods)
-      }else{
-        adjustedModel<-getFittedValues(objFMM)
-      }
+        ggplot2::geom_point(data = original, ggplot2::aes_(x=~Time, y=~Response, color = 1),
+                            size = 2, color = "grey65", shape = 21, stroke = 1.1) +
+        ggplot2::geom_path(data = fittedData, ggplot2::aes_(x=~Time, y=~Response, color = "FMM", position = NULL),
+                           size=1.5, lineend = "round", linejoin = "round") +
 
-      fittedData <- data.frame("Time" = 1:nObs, "fitted_FMM" = adjustedModel, "Response" = vData)
-
-      plot <- ggplot2::ggplot(data = fittedData, ggplot2::aes_(x=~Time, y=~Response, color = 1)) +
-        ggplot2::geom_point(size = 2, color = "grey65", shape = 21, stroke = 1.1) +
-        ggplot2::geom_path(ggplot2::aes_(x=~Time, y=~fitted_FMM, color = "FMM", position = NULL),
-                           size=2, lineend = "round", linejoin = "round")+
         ggplot2::labs(title = title) +
         ggplot2::scale_color_manual(values = "red") +
         ggplot2::theme_bw() +
         ggplot2::theme(legend.position = "none") +
-        ggplot2::scale_x_continuous(breaks = significantTimePoints,
-                                    labels = function(x) parse(text = paste("t[",x,"]")))
+        ggplot2::scale_x_continuous(breaks = timePoints[significantTimePoints],
+                                    labels = parse(text = paste("t[",significantTimePoints,"]")))
       return(plot)
     }
   }

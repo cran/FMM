@@ -1,7 +1,7 @@
 Package: FMM
 Type: Package
 Title: Rhythmic Patterns Modeling by FMM Models
-Version: 0.4.0
+Version: 0.4.1
 Authors@R: c(person(given = "Itziar",
                       family = "Fernandez",
                       role = c("aut", "cre"),
@@ -28,13 +28,14 @@ License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.5)
-Imports: methods, rlang, foreach, iterators, parallel, doParallel
-Suggests: ggplot2, gridExtra, knitr, RColorBrewer, rmarkdown, testthat
+Imports: methods, rlang, foreach, iterators, parallel, doParallel,
+        gsignal,
+Suggests: gridExtra, knitr, rmarkdown, RColorBrewer, ggplot2, testthat
         (>= 3.0.0)
 VignetteBuilder: knitr
 NeedsCompilation: no
 RoxygenNote: 7.3.2
-Packaged: 2025-03-01 16:28:12 UTC; Itziar
+Packaged: 2025-04-18 12:36:35 UTC; Itziar
 Author: Itziar Fernandez [aut, cre],
   Yolanda Larriba [aut],
   Christian Canedo [aut],
@@ -43,4 +44,4 @@ Author: Itziar Fernandez [aut, cre],
   Cristina Rueda [aut]
 Maintainer: Itziar Fernandez <itziar.fernandez@uva.es>
 Repository: CRAN
-Date/Publication: 2025-03-01 23:10:13 UTC
+Date/Publication: 2025-04-18 19:50:08 UTC

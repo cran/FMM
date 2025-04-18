@@ -135,10 +135,10 @@ setMethod("resid", "FMM", function(object,...) {
   return(res)
 })
 
-addShowMethod<-function(){
-  rlang::env_unlock(env = asNamespace('FMM'))
-  rlang::env_binding_unlock(env = asNamespace('FMM'))
-  setMethod("show", signature(object="FMM"),function(object) {
+# ------------------------------------------------------------------------------
+# show method for S4 class FMM
+#
+setMethod("show", signature(object="FMM"),function(object) {
     #
     # Checks
     if(!is(object, "FMM")){stop("Object must be of class 'FMM'")}
@@ -173,8 +173,5 @@ addShowMethod<-function(){
       cat("\n")
     }
 
-  })
+})
 
-  rlang::env_binding_lock(env = asNamespace('FMM'))
-  rlang::env_lock(asNamespace('FMM'))
-}
